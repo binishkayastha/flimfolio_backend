@@ -1,0 +1,10 @@
+node_modules
+coverage
+public
+.env
+localhost.crt
+localhost.key
+localhost.csr
+localhost.ext
+ca.key
+ca.crt
