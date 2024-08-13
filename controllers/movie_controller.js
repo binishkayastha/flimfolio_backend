@@ -1,6 +1,8 @@
 const axios = require("axios");
 const Review = require("../models/Review");
 const User = require("../models/User");
+const natural = require("natural");
+const TfIdf = natural.TfIdf;
 
 const baseURLForImage = "https://image.tmdb.org/t/p/w500";
 const apiKey = process.env.API_KEY;
@@ -49,22 +51,28 @@ const getMovieDetails = async (req, res) => {
 
     const userInfo = await User.findById(userID);
 
-    const [movieResponse, castResponse, similarResponse, topReviewsResponse] =
-      await Promise.all([
-        axios.get(
-          `https://api.themoviedb.org/3/movie/${movieID}?api_key=${apiKey}`
-        ),
-        axios.get(
-          `https://api.themoviedb.org/3/movie/${movieID}/credits?api_key=${apiKey}`
-        ),
-        axios.get(
-          `https://api.themoviedb.org/3/movie/${movieID}/similar?api_key=${apiKey}`
-        ),
-        Review.find({ movieID })
-          .sort({ createdAt: -1 })
-          .limit(5)
-          .populate("user"),
-      ]);
+    const [
+      movieResponse,
+      castResponse,
+      similarResponse,
+      topReviewsResponse,
+      allReviewsResponse,
+    ] = await Promise.all([
+      axios.get(
+        `https://api.themoviedb.org/3/movie/${movieID}?api_key=${apiKey}`
+      ),
+      axios.get(
+        `https://api.themoviedb.org/3/movie/${movieID}/credits?api_key=${apiKey}`
+      ),
+      axios.get(
+        `https://api.themoviedb.org/3/movie/${movieID}/similar?api_key=${apiKey}`
+      ),
+      Review.find({ movieID })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .populate("user"),
+      Review.find({ movieID }).sort({ createdAt: -1 }).populate("user"),
+    ]);
 
     const movieDetails = movieResponse.data;
     const castWithImageURL = castResponse.data.cast.map((cast) => ({
@@ -91,7 +99,6 @@ const getMovieDetails = async (req, res) => {
         : null,
     };
 
-    // If the user is logged in, fetch the reviews liked by the user
     const likedReviews = userInfo
       ? await Review.find({
           _id: { $in: topReviewsResponse.map((review) => review._id) },
@@ -99,16 +106,30 @@ const getMovieDetails = async (req, res) => {
         })
       : [];
 
-    // Add the 'isLiked' and 'isUserLoggedIn' fields to each review object
     const topReviewsWithExtraFields = topReviewsResponse.map((review) => ({
       ...review.toObject(),
-      isLiked: likedReviews.some((likedReview) => likedReview._id.equals(review._id)),
+      isLiked: likedReviews.some((likedReview) =>
+        likedReview._id.equals(review._id)
+      ),
       isUserLoggedIn: userInfo ? userInfo._id.equals(review.user._id) : false,
     }));
 
-    const isWatchListed = userInfo.watchlist.includes(
-      movieID.toString()
-    );
+    let reviewSummary = "";
+    if (allReviewsResponse.length >= 5) {
+      const tfidf = new TfIdf();
+
+      allReviewsResponse.forEach((review) => {
+        tfidf.addDocument(review.review);
+      });
+
+      reviewSummary = tfidf
+        .listTerms(0)
+        .slice(0, 5)
+        .map((term) => term.term)
+        .join(", ");
+    }
+
+    const isWatchListed = userInfo.watchlist.includes(movieID.toString());
 
     res.json({
       data: [
@@ -119,6 +140,7 @@ const getMovieDetails = async (req, res) => {
           similarMovies,
           topReviews: topReviewsWithExtraFields,
           isWatchListed,
+          reviewSummary: reviewSummary,
         },
       ],
     });

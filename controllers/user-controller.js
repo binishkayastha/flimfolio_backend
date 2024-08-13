@@ -158,13 +158,18 @@ const loginUser = async (req, res, next) => {
       email: user.email,
     };
 
-    jwt.sign(payload, process.env.SECRET, { expiresIn: "1d" }, (err, token) => {
-      if (err) {
-        /* istanbul ignore next */
-        return res.status(500).json({ error: err.message });
+    jwt.sign(
+      payload,
+      process.env.SECRET,
+      { expiresIn: "60d" },
+      (err, token) => {
+        if (err) {
+          /* istanbul ignore next */
+          return res.status(500).json({ error: err.message });
+        }
+        res.json({ status: "success", token: token, user: user });
       }
-      res.json({ status: "success", token: token, user: user });
-    });
+    );
   } catch (error) {
     console.error(error);
     res

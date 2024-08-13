@@ -1,5 +1,7 @@
 const Review = require("../models/Review");
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
+const natural = require("natural");
+const TfIdf = natural.TfIdf;
 
 // Controller to add a review for a movie
 const addMovieReview = async (req, res) => {
@@ -85,21 +87,39 @@ const getMovieReviews = async (req, res) => {
     // If the user is logged in, fetch the liked reviews by the user
     if (loggedInUserID) {
       const likedReviews = await Review.find({
-        _id: { $in: reviews.map((review) => new mongoose.Types.ObjectId(review._id)) },
+        _id: {
+          $in: reviews.map((review) => new mongoose.Types.ObjectId(review._id)),
+        },
         likes: loggedInUserID,
       });
       likedReviewIds = likedReviews.map((review) => review._id.toString());
     }
 
-    // Add the isUserLoggedIn and isLiked fields to each review object
-    const reviewsWithExtraFields = reviews.map((review) => ({
-      ...review.toObject(),
-      isUserLoggedIn: loggedInUserID === review.user._id.toString(),
-      isLiked: likedReviewIds.includes(review._id.toString()),
-    }));
+    // Initialize TF-IDF
+    const tfidf = new TfIdf();
+
+    // Add each review to the TF-IDF document
+    reviews.forEach((review) => tfidf.addDocument(review.review));
+
+    // Summarize reviews using TF-IDF
+    const reviewsWithSummary = reviews.map((review, index) => {
+      // Extract the top 5 terms with the highest TF-IDF scores for each review
+      const summaryTerms = tfidf
+        .listTerms(index)
+        .slice(0, 5)
+        .map((term) => term.term)
+        .join(", ");
+
+      return {
+        ...review.toObject(),
+        summary: summaryTerms,
+        isUserLoggedIn: loggedInUserID === review.user._id.toString(),
+        isLiked: likedReviewIds.includes(review._id.toString()),
+      };
+    });
 
     res.json({
-      data: reviewsWithExtraFields,
+      data: reviewsWithSummary,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -117,8 +137,22 @@ const getMovieReview = async (req, res) => {
       return res.status(404).json({ error: "Review not found" });
     }
 
+    // Initialize TF-IDF and add the review document
+    const tfidf = new natural.TfIdf();
+    tfidf.addDocument(review.review);
+
+    // Extract the top 5 terms with the highest TF-IDF scores
+    const summary = tfidf
+      .listTerms(0)
+      .slice(0, 5)
+      .map((term) => term.term)
+      .join(", ");
+
     res.json({
-      data: review,
+      data: {
+        ...review.toObject(),
+        summary,
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -186,7 +220,6 @@ const unlikeMovieReview = async (req, res) => {
   }
 };
 
-
 module.exports = {
   addMovieReview,
   updateMovieReview,
@@ -194,5 +227,5 @@ module.exports = {
   getMovieReviews,
   getMovieReview,
   likeMovieReview,
-  unlikeMovieReview
+  unlikeMovieReview,
 };
