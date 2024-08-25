@@ -81,20 +81,6 @@ const getMovieReviews = async (req, res) => {
     // Fetch all reviews for the movie
     const reviews = await Review.find({ movieID }).populate("user");
 
-    // Create an array to store the review IDs liked by the user
-    let likedReviewIds = [];
-
-    // If the user is logged in, fetch the liked reviews by the user
-    if (loggedInUserID) {
-      const likedReviews = await Review.find({
-        _id: {
-          $in: reviews.map((review) => new mongoose.Types.ObjectId(review._id)),
-        },
-        likes: loggedInUserID,
-      });
-      likedReviewIds = likedReviews.map((review) => review._id.toString());
-    }
-
     // Initialize TF-IDF
     const tfidf = new TfIdf();
 
@@ -114,7 +100,9 @@ const getMovieReviews = async (req, res) => {
         ...review.toObject(),
         summary: summaryTerms,
         isUserLoggedIn: loggedInUserID === review.user._id.toString(),
-        isLiked: likedReviewIds.includes(review._id.toString()),
+        isReacted: Object.keys(review.reactions).some((reactionType) =>
+          review.reactions[reactionType].includes(loggedInUserID)
+        ),
       };
     });
 
@@ -153,6 +141,75 @@ const getMovieReview = async (req, res) => {
         ...review.toObject(),
         summary,
       },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Controller to add a reaction
+const addReaction = async (req, res) => {
+  try {
+    const reviewID = req.params.reviewID;
+    const userID = req.user.id;
+    const { reactionType } = req.body;
+
+    const validReactions = ["like", "love", "haha", "wow", "sad", "angry"];
+    if (!validReactions.includes(reactionType)) {
+      return res.status(400).json({ error: "Invalid reaction type" });
+    }
+
+    const review = await Review.findById(reviewID);
+
+    if (!review) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    // Remove existing reaction of the same type from the user
+    review.reactions[reactionType] = review.reactions[reactionType].filter(
+      (user) => !user.equals(userID)
+    );
+
+    // Add new reaction
+    review.reactions[reactionType].push(userID);
+    await review.save();
+
+    res.json({
+      message: "Reaction added successfully",
+      review,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Controller to remove a reaction
+const removeReaction = async (req, res) => {
+  try {
+    const reviewID = req.params.reviewID;
+    const userID = req.user.id;
+    const { reactionType } = req.body;
+
+    const validReactions = ["like", "love", "haha", "wow", "sad", "angry"];
+    if (!validReactions.includes(reactionType)) {
+      return res.status(400).json({ error: "Invalid reaction type" });
+    }
+
+    const review = await Review.findById(reviewID);
+
+    if (!review) {
+      return res.status(404).json({ error: "Review not found" });
+    }
+
+    // Remove reaction of the specified type from the user
+    review.reactions[reactionType] = review.reactions[reactionType].filter(
+      (user) => !user.equals(userID)
+    );
+    await review.save();
+
+    res.json({
+      message: "Reaction removed successfully",
+      review,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -226,6 +283,8 @@ module.exports = {
   deleteMovieReview,
   getMovieReviews,
   getMovieReview,
+  addReaction,
+  removeReaction,
   likeMovieReview,
   unlikeMovieReview,
 };

@@ -139,19 +139,6 @@ const loginUser = async (req, res, next) => {
     }
 
     // If everything is fine, generate and send the JWT token
-    // const payload = {
-    //   id: user._id,
-    //   username: user.username,
-    //   email: user.email,
-    // };
-
-    // jwt.sign(payload, process.env.SECRET, { expiresIn: "1d" }, (err, token) => {
-    //   if (err) {
-    //     return res.status(500).json({ error: err.message });
-    //   }
-    //   res.json({ status: "success", token: token });
-    // });
-    // If everything is fine, generate and send the JWT token
     const payload = {
       id: user._id,
       username: user.username,
@@ -161,10 +148,9 @@ const loginUser = async (req, res, next) => {
     jwt.sign(
       payload,
       process.env.SECRET,
-      { expiresIn: "60d" },
+      { expiresIn: "30d" },
       (err, token) => {
         if (err) {
-          /* istanbul ignore next */
           return res.status(500).json({ error: err.message });
         }
         res.json({ status: "success", token: token, user: user });
@@ -272,7 +258,6 @@ const updatePassword = async (req, res, next) => {
 
     res.status(204).json({ message: "Password updated successfully" });
   } catch (error) {
-    /* istanbul ignore next */
     next(error);
   }
 };

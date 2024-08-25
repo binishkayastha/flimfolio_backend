@@ -20,12 +20,44 @@ const reviewSchema = new Schema({
     type: String,
     required: true,
   },
-  likes: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: User,
-    },
-  ],
+  reactions: {
+    like: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+    love: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+    haha: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+    wow: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+    sad: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+    angry: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: User,
+      },
+    ],
+  },
   createdAt: {
     type: Date,
     required: true,

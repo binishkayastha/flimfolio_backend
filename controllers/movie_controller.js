@@ -44,7 +44,6 @@ const getTopRatedMovies = async (req, res, next) => {
 };
 
 const getMovieDetails = async (req, res) => {
-  console.log(req.user);
   try {
     const userID = req.user ? req.user.id : null;
     const movieID = req.params.id;

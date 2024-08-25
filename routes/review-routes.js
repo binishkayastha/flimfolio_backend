@@ -23,4 +23,13 @@ router.post("/:id/reviews/:reviewID/like", movieController.likeMovieReview);
 // Route to unlike a review
 router.post("/:id/reviews/:reviewID/unlike", movieController.unlikeMovieReview);
 
+// Route to add a reaction to a review
+router.post("/:id/reviews/:reviewID/reactions", movieController.addReaction);
+
+// Route to remove a reaction from a review
+router.delete(
+  "/:id/reviews/:reviewID/reactions",
+  movieController.removeReaction
+);
+
 module.exports = router;
